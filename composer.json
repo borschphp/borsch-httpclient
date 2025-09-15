@@ -1,0 +1,26 @@
+{
+  "name": "borschphp/http-client",
+  "description": "A minimal PSR-18 HTTP Client.",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Alexandre Debusschère",
+      "email": "alexandre.debusschere@hey.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Borsch\\Http\\": "src/"
+    }
+  },
+  "require": {
+    "php": "^8.3",
+    "ext-curl": "*",
+    "psr/http-message": "^2.0",
+    "psr/http-factory": "^1.1",
+    "psr/http-client": "^1.0"
+  },
+  "require-dev": {
+    "laminas/laminas-diactoros": "^3.6"
+  }
+}
