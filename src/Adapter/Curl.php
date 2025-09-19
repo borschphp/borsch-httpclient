@@ -3,6 +3,8 @@
 namespace Borsch\Http\Adapter;
 
 use Borsch\Http\Adapter\Exception\CurlAdapterException;
+use Borsch\Http\Adapter\Exception\NetworkException;
+use Borsch\Http\Adapter\Exception\RequestException;
 use CurlHandle;
 use Psr\Http\Message\{RequestInterface, ResponseFactoryInterface, ResponseInterface, StreamFactoryInterface};
 
@@ -20,6 +22,23 @@ class Curl implements AdapterInterface
         CURLOPT_NOBODY,
         CURLOPT_HTTPAUTH,
         CURLOPT_USERPWD
+    ];
+    protected array $curl_network_error_codes = [
+        CURLE_COULDNT_RESOLVE_HOST,
+        CURLE_COULDNT_RESOLVE_PROXY,
+        CURLE_COULDNT_CONNECT,
+        CURLE_OPERATION_TIMEOUTED,
+        CURLE_SEND_ERROR,
+        CURLE_RECV_ERROR,
+        CURLE_GOT_NOTHING,
+        CURLE_SSL_CONNECT_ERROR,
+    ];
+    protected array $curl_request_error_codes = [
+        CURLE_TOO_MANY_REDIRECTS,
+        CURLE_UNSUPPORTED_PROTOCOL,
+        CURLE_URL_MALFORMAT,
+        CURLE_SSL_CERTPROBLEM,
+        CURLE_SSL_CACERT
     ];
 
     /** @var array<int, mixed> $options */
@@ -121,6 +140,8 @@ class Curl implements AdapterInterface
 
     /**
      * @throws CurlAdapterException
+     * @throws NetworkException
+     * @throws RequestException
      */
     public function send(): void
     {
@@ -130,6 +151,7 @@ class Curl implements AdapterInterface
 
         $response = curl_exec($this->curl);
         if ($response === false) {
+            $this->throwException();
             throw new CurlAdapterException(curl_error($this->curl), curl_errno($this->curl));
         }
 
@@ -163,5 +185,19 @@ class Curl implements AdapterInterface
         $this->curl = null;
         $this->request = null;
         $this->response = null;
+    }
+
+    protected function throwException(): void
+    {
+        $errno = curl_errno($this->curl);
+        $error = curl_error($this->curl);
+
+        if (in_array($errno, $this->curl_network_error_codes, true)) {
+            throw NetworkException::fromCurlError($error, $errno, $this->request);
+        }
+
+        if (in_array($errno, $this->curl_request_error_codes, true)) {
+            throw RequestException::fromCurlError($error, $errno, $this->request);
+        }
     }
 }

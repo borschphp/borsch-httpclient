@@ -3,8 +3,10 @@
 namespace Borsch\Http;
 
 use Borsch\Http\Adapter\AdapterInterface;
-use Psr\Http\Client\ClientInterface;
+use Borsch\Http\Exception\ClientException;
+use Psr\Http\Client\{ClientInterface, NetworkExceptionInterface, RequestExceptionInterface};
 use Psr\Http\Message\{RequestInterface, ResponseInterface};
+use Throwable;
 
 readonly class Client implements ClientInterface
 {
@@ -15,9 +17,15 @@ readonly class Client implements ClientInterface
 
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
-        $this->adapter->connect($request);
-        $this->adapter->send();
+        try {
+            $this->adapter->connect($request);
+            $this->adapter->send();
 
-        return $this->adapter->getResponse();
+            return $this->adapter->getResponse();
+        } catch (NetworkExceptionInterface|RequestExceptionInterface $e) {
+            throw $e;
+        } catch (Throwable $throwable) {
+            throw ClientException::unableToSendRequest($request, $throwable);
+        }
     }
 }
