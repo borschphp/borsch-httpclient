@@ -2,9 +2,7 @@
 
 namespace Borsch\Http\Adapter;
 
-use Borsch\Http\Adapter\Exception\CurlAdapterException;
-use Borsch\Http\Adapter\Exception\NetworkException;
-use Borsch\Http\Adapter\Exception\RequestException;
+use Borsch\Http\Adapter\Exception\{AdapterException, CurlAdapterException, NetworkException, RequestException};
 use CurlHandle;
 use Psr\Http\Message\{RequestInterface, ResponseFactoryInterface, ResponseInterface, StreamFactoryInterface};
 
@@ -13,7 +11,10 @@ class Curl implements AdapterInterface
 
     protected ?CurlHandle $curl = null;
 
+    /** @var array<string, mixed> */
     protected array $curl_constants = [];
+
+    /** @var int[] */
     protected array $curl_constants_to_ignore = [
         CURLOPT_URL,
         CURLOPT_CUSTOMREQUEST,
@@ -23,6 +24,8 @@ class Curl implements AdapterInterface
         CURLOPT_HTTPAUTH,
         CURLOPT_USERPWD
     ];
+
+    /** @var int[] */
     protected array $curl_network_error_codes = [
         CURLE_COULDNT_RESOLVE_HOST,
         CURLE_COULDNT_RESOLVE_PROXY,
@@ -33,6 +36,8 @@ class Curl implements AdapterInterface
         CURLE_GOT_NOTHING,
         CURLE_SSL_CONNECT_ERROR,
     ];
+
+    /** @var int[] */
     protected array $curl_request_error_codes = [
         CURLE_TOO_MANY_REDIRECTS,
         CURLE_UNSUPPORTED_PROTOCOL,
@@ -91,10 +96,12 @@ class Curl implements AdapterInterface
             $this->close();
         }
 
-        $this->curl = curl_init();
-        if ($this->curl === false) {
+        $curl = curl_init();
+        if ($curl === false) {
             throw CurlAdapterException::initializeFailed();
         }
+
+        $this->curl = $curl;
 
         curl_setopt_array(
             $this->curl,
@@ -131,7 +138,10 @@ class Curl implements AdapterInterface
         if ($request->hasHeader('Authorization') &&
             str_starts_with($request->getHeaderLine('Authorization'), 'Basic ')) {
             curl_setopt($this->curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            curl_setopt($this->curl, CURLOPT_USERPWD, substr($request   ->getHeaderLine('Authorization'), 6));
+
+            /** @var non-empty-string $line */
+            $line = substr($request->getHeaderLine('Authorization'), 6);
+            curl_setopt($this->curl, CURLOPT_USERPWD, $line);
         }
 
         // Save the request for later use
@@ -152,13 +162,12 @@ class Curl implements AdapterInterface
         $response = curl_exec($this->curl);
         if ($response === false) {
             $this->throwException();
-            throw new CurlAdapterException(curl_error($this->curl), curl_errno($this->curl));
         }
 
         $status_code = curl_getinfo($this->curl, CURLINFO_RESPONSE_CODE);
         $header_size = curl_getinfo($this->curl, CURLINFO_HEADER_SIZE);
-        $headers = substr($response, 0, $header_size);
-        $body = substr($response, $header_size);
+        $headers = substr((string)$response, 0, $header_size);
+        $body = substr((string)$response, $header_size);
 
         $this->response = $this->response_factory->createResponse($status_code);
         $this->response = $this->response->withBody($this->stream_factory->createStream($body));
@@ -171,8 +180,15 @@ class Curl implements AdapterInterface
         }
     }
 
+    /**
+     * @throws AdapterException
+     */
     public function getResponse(): ResponseInterface
     {
+        if (!$this->response instanceof ResponseInterface) {
+            throw AdapterException::responseNotAvailable();
+        }
+
         return $this->response;
     }
 
@@ -187,8 +203,22 @@ class Curl implements AdapterInterface
         $this->response = null;
     }
 
-    protected function throwException(): void
+    /**
+     * @throws NetworkException
+     * @throws RequestException
+     * @throws CurlAdapterException
+     * @throws AdapterException
+     */
+    protected function throwException(): never
     {
+        if (!$this->curl instanceof CurlHandle) {
+            throw CurlAdapterException::sessionNotInitialized();
+        }
+
+        if (!$this->request instanceof RequestInterface) {
+            throw AdapterException::requestNotAvailable();
+        }
+
         $errno = curl_errno($this->curl);
         $error = curl_error($this->curl);
 
@@ -199,5 +229,7 @@ class Curl implements AdapterInterface
         if (in_array($errno, $this->curl_request_error_codes, true)) {
             throw RequestException::fromCurlError($error, $errno, $this->request);
         }
+
+        throw AdapterException::unknownError($error, $errno);
     }
 }

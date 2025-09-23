@@ -13,6 +13,11 @@
       "Borsch\\Http\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
   "require": {
     "php": "^8.3",
     "ext-curl": "*",
@@ -21,6 +26,14 @@
     "psr/http-client": "^1.0"
   },
   "require-dev": {
-    "laminas/laminas-diactoros": "^3.6"
+    "laminas/laminas-diactoros": "^3.6",
+    "phpstan/phpstan": "^2.1",
+    "pestphp/pest": "^4.1",
+    "mockery/mockery": "^1.6"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
   }
 }

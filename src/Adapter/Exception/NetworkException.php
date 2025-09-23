@@ -11,10 +11,10 @@ class NetworkException extends Exception implements NetworkExceptionInterface
 {
 
     public function __construct(
+        protected RequestInterface $request,
         string $message,
         int $code = 0,
-        Throwable $previous = null,
-        protected RequestInterface $request
+        Throwable|null $previous = null
     ) {
         parent::__construct($message, $code, $previous);
     }
@@ -24,8 +24,8 @@ class NetworkException extends Exception implements NetworkExceptionInterface
         return $this->request;
     }
 
-    public static function fromCurlError($message, $code, RequestInterface $request): self
+    public static function fromCurlError(string $message, int $code, RequestInterface $request): self
     {
-        return new self($message, $code, request: $request);
+        return new self($request, $message, $code);
     }
 }
